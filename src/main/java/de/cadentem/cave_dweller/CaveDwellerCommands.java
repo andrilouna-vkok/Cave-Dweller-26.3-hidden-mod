@@ -16,18 +16,18 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 
 /**
- * /BetterImprovements spawn [player]   visible dweller near the player that immediately hunts them
- * /BetterImprovements scare [player]   cave noise + a hidden dweller that stalks the player like a natural spawn
- * /BetterImprovements status [player]  why a natural spawn near the player would / would not happen, plus the timer
- * /BetterImprovements skip             sets the spawn timer to 0 so a natural spawn can happen right away
- * /BetterImprovements remove           removes every Cave Dweller in your dimension
- * /BetterImprovements reload           reloads config/cave_dweller.properties
+ * /cavedweller spawn [player]   visible dweller near the player that immediately hunts them
+ * /cavedweller scare [player]   cave noise + a hidden dweller that stalks the player like a natural spawn
+ * /cavedweller status [player]  why a natural spawn near the player would / would not happen, plus the timer
+ * /cavedweller skip             sets the spawn timer to 0 so a natural spawn can happen right away
+ * /cavedweller remove           removes every Cave Dweller in your dimension
+ * /cavedweller reload           reloads config/cave_dweller.properties
  */
 public final class CaveDwellerCommands {
     private CaveDwellerCommands() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("BetterImprovements")
+        dispatcher.register(Commands.literal("cavedweller")
                 // If this line does not compile on 26.3, delete it: the commands are then available to everyone.
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                 .then(Commands.literal("spawn")
