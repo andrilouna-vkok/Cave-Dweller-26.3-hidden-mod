@@ -3,8 +3,14 @@
     "type": "minecraft:model",
     "model": "cave_dweller:item/cave_dweller_spawn_egg",
     "tints": [
-      { "type": "minecraft:constant", "value": 12895428 },
-      { "type": "minecraft:constant", "value": 790333 }
+      {
+        "type": "minecraft:constant",
+        "value": 12895428
+      },
+      {
+        "type": "minecraft:constant",
+        "value": 790333
+      }
     ]
   }
 }

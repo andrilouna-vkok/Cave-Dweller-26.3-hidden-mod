@@ -79,6 +79,8 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         this.refreshDimensions();
         this.twoBlockSpaceCooldown = 5.0F;
         this.ticksTillRemove = Utils.secondsToTicks(ServerConfig.TIME_UNTIL_LEAVE);
+        // Start out stalking instead of aimlessly wandering
+        this.currentRoll = this.getRandom().nextDouble() < ServerConfig.STALK_CHANCE ? Roll.STARE : Roll.STROLL;
     }
 
     @Nullable
@@ -133,6 +135,9 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         this.goalSelector.addGoal(2, new CaveDwellerStareGoal(this));
         if (ServerConfig.CAN_BREAK_DOOR) {
             this.goalSelector.addGoal(2, new CaveDwellerBreakDoorGoal(this, difficulty -> true));
+        }
+        if (ServerConfig.CAN_BREAK_BLOCKS) {
+            this.goalSelector.addGoal(2, new CaveDwellerBreakBlocksGoal(this));
         }
         this.goalSelector.addGoal(3, new CaveDwellerStrollGoal(this, 0.7));
         this.targetSelector.addGoal(1, new CaveDwellerTargetTooCloseGoal(this, 12.0F));
@@ -223,7 +228,11 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         return avg > 0.03F;
     }
 
-    public void reRoll() { this.currentRoll = Roll.fromValue(new Random().nextInt(3)); }
+    public void reRoll() {
+        // 25% chase, 50% keep stalking, 25% flee
+        int[] table = {0, 1, 1, 2};
+        this.currentRoll = Roll.fromValue(table[new Random().nextInt(table.length)]);
+    }
 
     public void pickRoll(@NotNull List<Roll> rolls) { this.currentRoll = rolls.get(new Random().nextInt(rolls.size())); }
 

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -27,6 +28,7 @@ public class CaveDweller implements ModInitializer {
     public static final String MODID = "cave_dweller";
     public static final Logger LOG = LogUtils.getLogger();
     public static boolean doReload;
+    public static CaveDweller instance;
 
     private final List<ServerPlayer> spelunkers = new ArrayList<>();
     private final Random random = new Random();
@@ -114,6 +116,56 @@ public class CaveDweller implements ModInitializer {
         return ServerConfig.ALLOW_SURFACE_SPAWN || !level.canSeeSky(player.blockPosition());
     }
 
+    public int getCalmTimer() {
+        return this.calmTimer;
+    }
+
+    public void setCalmTimer(int ticks) {
+        this.calmTimer = ticks;
+    }
+
+    /** Spawns a Cave Dweller near the victim; invisible ones behave like natural spawns (they stalk until noticed). */
+    public CaveDwellerEntity spawnFor(ServerPlayer victim, boolean visible) {
+        ServerLevel level = (ServerLevel) victim.level();
+        CaveDwellerEntity dweller = new CaveDwellerEntity(ModEntityTypes.CAVE_DWELLER, level);
+        dweller.setInvisible(!visible);
+        dweller.setPos(dweller.generatePos(victim));
+        if (visible) dweller.setTarget(victim);
+        level.addFreshEntity(dweller);
+        return dweller;
+    }
+
+    /** Human-readable explanation of every condition for a natural spawn near this player. */
+    public List<String> spelunkerReport(ServerPlayer player) {
+        List<String> lines = new ArrayList<>();
+        ServerLevel level = (ServerLevel) player.level();
+        boolean overworld = level.dimension() == Level.OVERWORLD;
+        lines.add(flag(overworld, "Dimension is the Overworld (natural spawns only happen there)"));
+        lines.add(flag(Utils.isValidPlayer(player), "Valid target (survival/adventure, alive)"));
+        lines.add(flag(player.position().y <= ServerConfig.SPAWN_HEIGHT,
+                "Height Y=" + (int) player.position().y + " <= " + ServerConfig.SPAWN_HEIGHT));
+        int sky = level.getBrightness(LightLayer.SKY, player.blockPosition());
+        if (level.isDarkOutside()) sky = 0;
+        lines.add(flag(sky <= ServerConfig.SKY_LIGHT_LEVEL, "Sky light " + sky + " <= " + ServerConfig.SKY_LIGHT_LEVEL));
+        int block = level.getBrightness(LightLayer.BLOCK, player.blockPosition());
+        lines.add(flag(block <= ServerConfig.BLOCK_LIGHT_LEVEL, "Block light " + block + " <= " + ServerConfig.BLOCK_LIGHT_LEVEL));
+        boolean surface = level.canSeeSky(player.blockPosition());
+        lines.add(flag(ServerConfig.ALLOW_SURFACE_SPAWN || !surface, "Not open to the sky (surface spawns "
+                + (ServerConfig.ALLOW_SURFACE_SPAWN ? "allowed" : "disabled") + ")"));
+        boolean exists = false;
+        for (net.minecraft.world.entity.Entity entity : level.getAllEntities()) {
+            if (entity instanceof CaveDwellerEntity) { exists = true; break; }
+        }
+        lines.add(flag(!exists, "No Cave Dweller currently exists"));
+        lines.add("Spawn timer: " + Math.max(0, this.calmTimer / 20) + "s left"
+                + " (once 0: " + String.format("%.1f", ServerConfig.SPAWN_CHANCE_PER_TICK * 100) + "% chance per tick)");
+        return lines;
+    }
+
+    private static String flag(boolean ok, String text) {
+        return (ok ? "[OK] " : "[NO] ") + text;
+    }
+
     private void resetCalmTimer() {
         if (this.random.nextDouble() <= ServerConfig.RESET_CALM_COOLDOWN_CHANCE) {
             this.calmTimer = Utils.secondsToTicks(ServerConfig.RESET_CALM_COOLDOWN);
@@ -140,9 +192,11 @@ public class CaveDweller implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        instance = this;
         ServerLifecycleEvents.SERVER_STARTING.register(server -> ServerConfig.load());
         ServerLifecycleEvents.SERVER_STARTED.register(server -> doReload = true);
         ServerTickEvents.START_SERVER_TICK.register(this::serverTick);
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> CaveDwellerCommands.register(dispatcher));
         ModSounds.init();
         ModEntityTypes.register();
         ModItems.register();
