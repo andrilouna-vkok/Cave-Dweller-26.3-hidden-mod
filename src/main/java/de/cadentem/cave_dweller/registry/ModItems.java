@@ -1,6 +1,6 @@
 package de.cadentem.cave_dweller.registry;
 
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -19,6 +19,6 @@ public class ModItems {
 
     public static void register() {
         Registry.register(BuiltInRegistries.ITEM, KEY, CAVE_DWELLER_SPAWN_EGG);
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.SPAWN_EGGS).register(content -> content.accept(CAVE_DWELLER_SPAWN_EGG));
+        CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.SPAWN_EGGS).register(output -> output.accept(CAVE_DWELLER_SPAWN_EGG));
     }
 }

@@ -6,7 +6,6 @@ import com.geckolib.animatable.manager.AnimatableManager;
 import com.geckolib.animation.AnimationController;
 import com.geckolib.animation.RawAnimation;
 import com.geckolib.animation.state.AnimationTest;
-import com.geckolib.animation.state.PlayState;
 import com.geckolib.util.GeckoLibUtil;
 import de.cadentem.cave_dweller.config.ServerConfig;
 import de.cadentem.cave_dweller.entities.goals.*;
@@ -155,10 +154,10 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
             BlockPos p3 = new BlockPos(posX, posY + 2, posZ);
             BlockPos p4 = new BlockPos(posX, posY - 1, posZ);
             runFor--;
-            if (!this.level().getBlockState(p1).blocksMotion()
-                    && !this.level().getBlockState(p2).blocksMotion()
-                    && !this.level().getBlockState(p3).blocksMotion()
-                    && this.level().getBlockState(p4).blocksMotion()) {
+            if (!Utils.blocksMotion(this.level(), p1)
+                    && !Utils.blocksMotion(this.level(), p2)
+                    && !Utils.blocksMotion(this.level(), p3)
+                    && Utils.blocksMotion(this.level(), p4)) {
                 break;
             }
         }
@@ -186,7 +185,7 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         }
 
         BlockPos above = BlockPos.containing(this.position().x, this.position().y + 2.0, this.position().z);
-        boolean blocksMotion = this.level().getBlockState(above).blocksMotion();
+        boolean blocksMotion = Utils.blocksMotion(this.level(), above);
         if (blocksMotion) {
             this.twoBlockSpaceTimer = this.twoBlockSpaceCooldown;
             this.inTwoBlockSpace = true;
@@ -269,7 +268,9 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         };
     }
 
-    private PlayState predicate(AnimationTest<CaveDwellerEntity> state) {
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(state -> {
         SynchedEntityData data = this.getEntityData();
         if (data.get(AGGRO_ACCESSOR)) {
             if (data.get(SQUEEZING_ACCESSOR)) return state.setAndContinue(CRAWL);
@@ -281,11 +282,7 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
             return state.setAndContinue(IS_SPOTTED);
         }
         return state.isMoving() ? state.setAndContinue(CALM_RUN) : state.setAndContinue(CALM_STILL);
-    }
-
-    @Override
-    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this::predicate));
+    }));
     }
 
     @Override

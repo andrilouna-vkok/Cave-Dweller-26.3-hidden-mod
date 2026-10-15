@@ -102,7 +102,7 @@ public class CaveDwellerChaseGoal extends Goal {
       } else if (!this.followTargetEvenIfNotSeen) {
          return !this.caveDweller.getNavigation().isDone();
       } else {
-         return !this.caveDweller.isWithinRestriction(target.blockPosition()) ? false : Utils.isValidPlayer(target);
+         return Utils.isValidPlayer(target);
       }
    }
 
@@ -222,11 +222,9 @@ public class CaveDwellerChaseGoal extends Goal {
          }
 
          BlockPos.MutableBlockPos blockpos$mutableblockpos = new BlockPos.MutableBlockPos(this.xPathTargetVec.x, this.xPathTargetVec.y, this.xPathTargetVec.z);
-         BlockState blockstate = this.caveDweller.level().getBlockState(blockpos$mutableblockpos);
-         boolean xBlocked = blockstate.blocksMotion();
+         boolean xBlocked = Utils.blocksMotion(this.caveDweller.level(), blockpos$mutableblockpos);
          blockpos$mutableblockpos = new BlockPos.MutableBlockPos(this.zPathTargetVec.x, this.zPathTargetVec.y, this.zPathTargetVec.z);
-         blockstate = this.caveDweller.level().getBlockState(blockpos$mutableblockpos);
-         boolean zBlocked = blockstate.blocksMotion();
+         boolean zBlocked = Utils.blocksMotion(this.caveDweller.level(), blockpos$mutableblockpos);
          if (xBlocked) {
             this.vecMobPos = this.zPathStartVec;
             this.vecTargetPos = this.zPathTargetVec;
@@ -296,8 +294,7 @@ public class CaveDwellerChaseGoal extends Goal {
             return false;
          }
 
-         BlockState blockstate = this.caveDweller.level().getBlockState(blockPosition.above());
-         return blockstate.blocksMotion();
+         return Utils.blocksMotion(this.caveDweller.level(), blockPosition.above());
       } else {
          return false;
       }
@@ -371,7 +368,6 @@ public class CaveDwellerChaseGoal extends Goal {
       double attackReach = this.getAttackReachSqr(target);
       if (distanceToTarget <= attackReach && this.ticksUntilNextAttack <= 0) {
          this.resetAttackCooldown();
-         this.caveDweller.swing(InteractionHand.MAIN_HAND);
          if (this.caveDweller.level() instanceof ServerLevel serverLevel) {
             this.caveDweller.doHurtTarget(serverLevel, target);
          }

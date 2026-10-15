@@ -2,7 +2,6 @@ package de.cadentem.cave_dweller.client;
 
 import com.geckolib.renderer.GeoEntityRenderer;
 import com.geckolib.renderer.base.GeoRenderState;
-import com.geckolib.renderer.layer.AutoGlowingGeoLayer;
 import de.cadentem.cave_dweller.entities.CaveDwellerEntity;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -15,7 +14,8 @@ import net.minecraft.world.entity.EntityType;
 public class CaveDwellerRenderer<R extends EntityRenderState & GeoRenderState> extends GeoEntityRenderer<CaveDwellerEntity, R> {
     public CaveDwellerRenderer(EntityRendererProvider.Context context, EntityType<CaveDwellerEntity> entityType) {
         super(context, entityType);
-        withRenderLayer(new AutoGlowingGeoLayer<>(this));
+        // TODO: re-enable glowing eyes once AutoGlowingGeoLayer's package is known:
+        // withRenderLayer(new AutoGlowingGeoLayer<>(this));
         withScale(1.3F);
     }
 }
