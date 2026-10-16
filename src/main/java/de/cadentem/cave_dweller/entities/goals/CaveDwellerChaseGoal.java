@@ -111,9 +111,9 @@ public class CaveDwellerChaseGoal extends Goal {
    }
 
    public void start() {
-      int minTime = Math.min(ServerConfig.STALK_MIN_TIME, ServerConfig.STALK_MAX_TIME);
-      int maxTime = Math.max(ServerConfig.STALK_MIN_TIME, ServerConfig.STALK_MAX_TIME);
-      int stalkSeconds = minTime + this.caveDweller.getRandom().nextInt(maxTime - minTime + 1);
+      int minTime = Math.min(ServerConfig.CHASE_STALK_MIN_TIME, ServerConfig.CHASE_STALK_MAX_TIME);
+      int maxTime = Math.max(ServerConfig.CHASE_STALK_MIN_TIME, ServerConfig.CHASE_STALK_MAX_TIME);
+      int stalkSeconds = Math.max(0, minTime) + this.caveDweller.getRandom().nextInt(Math.max(0, maxTime - minTime) + 1);
       this.stalkTicksLeft = this.caveDweller.isSurfaceStalker() ? Integer.MAX_VALUE : Utils.secondsToTicks(stalkSeconds);
       this.stalkDecisionDelay = 0;
       this.caveDweller.setAggressive(true);
@@ -176,6 +176,7 @@ public class CaveDwellerChaseGoal extends Goal {
     * Stalking phase: keep the target at a distance, but stay within line of sight.
     * Too close (or being stared at while fairly near) -> back away; out of sight or too far -> creep closer;
     * otherwise stand still and watch. When the timer runs out (or the target gets right on top of him) he charges.
+    * Surface stalkers stay in this phase forever.
     */
    private void stalkTick(LivingEntity target) {
       if (target == null) {
@@ -199,8 +200,8 @@ public class CaveDwellerChaseGoal extends Goal {
       }
 
       this.stalkDecisionDelay = 10;
-      double minDistance = Math.min(ServerConfig.STALK_MIN_DISTANCE, ServerConfig.STALK_MAX_DISTANCE);
-      double maxDistance = Math.max(ServerConfig.STALK_MIN_DISTANCE, ServerConfig.STALK_MAX_DISTANCE);
+      double minDistance = Math.min(ServerConfig.CHASE_STALK_MIN_DISTANCE, ServerConfig.CHASE_STALK_MAX_DISTANCE);
+      double maxDistance = Math.max(ServerConfig.CHASE_STALK_MIN_DISTANCE, ServerConfig.CHASE_STALK_MAX_DISTANCE);
       boolean hasLineOfSight = this.caveDweller.getSensing().hasLineOfSight(target);
       boolean beingWatched = this.caveDweller.isLookingAtMe(target);
 
