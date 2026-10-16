@@ -8,6 +8,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 import de.cadentem.cave_dweller.config.ServerConfig;
@@ -43,6 +44,8 @@ public class CaveDwellerChaseGoal extends Goal {
    private int currentTicksToSqueeze;
    private int ticksUntilLeave;
    private boolean squeezing;
+   private int stalkTicksLeft;
+   private int stalkDecisionDelay;
 
    public CaveDwellerChaseGoal(CaveDwellerEntity caveDweller, double speedModifier, boolean followTargetEvenIfNotSeen, float ticksUntilChase) {
       this.caveDweller = caveDweller;
@@ -60,7 +63,8 @@ public class CaveDwellerChaseGoal extends Goal {
          return false;
       }
 
-      if (this.caveDweller.currentRoll == Roll.CHASE && this.caveDweller.isLookingAtMe(this.caveDweller.getTarget())) {
+      if (this.caveDweller.currentRoll == Roll.CHASE
+         && (this.caveDweller.isSurfaceStalker() || this.caveDweller.isLookingAtMe(this.caveDweller.getTarget()))) {
          long ticks = this.caveDweller.level().getGameTime();
          if (ticks - this.lastGameTimeCheck < 20L) {
             return false;
@@ -107,6 +111,11 @@ public class CaveDwellerChaseGoal extends Goal {
    }
 
    public void start() {
+      int minTime = Math.min(ServerConfig.STALK_MIN_TIME, ServerConfig.STALK_MAX_TIME);
+      int maxTime = Math.max(ServerConfig.STALK_MIN_TIME, ServerConfig.STALK_MAX_TIME);
+      int stalkSeconds = minTime + this.caveDweller.getRandom().nextInt(maxTime - minTime + 1);
+      this.stalkTicksLeft = this.caveDweller.isSurfaceStalker() ? Integer.MAX_VALUE : Utils.secondsToTicks(stalkSeconds);
+      this.stalkDecisionDelay = 0;
       this.caveDweller.setAggressive(true);
       this.ticksUntilNextPathRecalculation = 0;
       this.ticksUntilNextAttack = 0;
@@ -132,7 +141,13 @@ public class CaveDwellerChaseGoal extends Goal {
    public void tick() {
       this.caveDweller.squeezeCrawling = this.squeezing;
       LivingEntity target = this.caveDweller.getTarget();
-      this.tickAggroClock();
+      boolean stalking = this.stalkTicksLeft > 0 && !(Boolean)this.caveDweller.getEntityData().get(CaveDwellerEntity.AGGRO_ACCESSOR);
+      if (stalking) {
+         this.stalkTick(target);
+      } else {
+         this.tickAggroClock();
+      }
+
       if (!this.squeezing && target != null) {
          if (this.caveDweller.isAggressive()) {
             this.caveDweller.getLookControl().setLookAt(target, 90.0F, 90.0F);
@@ -149,13 +164,70 @@ public class CaveDwellerChaseGoal extends Goal {
          }
       }
 
-      this.ticksUntilLeave--;
-      if (this.ticksUntilLeave <= 0 && (!this.caveDweller.isLookingAtMe(target) || !this.inPlayerLineOfSight())) {
-         this.caveDweller.discard();
+      if (!stalking) {
+         this.ticksUntilLeave--;
+         if (this.ticksUntilLeave <= 0 && (!this.caveDweller.isLookingAtMe(target) || !this.inPlayerLineOfSight())) {
+            this.caveDweller.discard();
+         }
       }
    }
 
+   /**
+    * Stalking phase: keep the target at a distance, but stay within line of sight.
+    * Too close (or being stared at while fairly near) -> back away; out of sight or too far -> creep closer;
+    * otherwise stand still and watch. When the timer runs out (or the target gets right on top of him) he charges.
+    */
+   private void stalkTick(LivingEntity target) {
+      if (target == null) {
+         return;
+      }
+
+      boolean stalkOnly = this.caveDweller.isSurfaceStalker();
+      if (!stalkOnly) {
+         this.stalkTicksLeft--;
+      }
+
+      double distance = Math.sqrt(this.caveDweller.distanceToSqr(target));
+      if (!stalkOnly && (this.stalkTicksLeft <= 0 || distance < 5.0)) {
+         this.endStalking();
+         return;
+      }
+
+      this.stalkDecisionDelay--;
+      if (this.stalkDecisionDelay > 0) {
+         return;
+      }
+
+      this.stalkDecisionDelay = 10;
+      double minDistance = Math.min(ServerConfig.STALK_MIN_DISTANCE, ServerConfig.STALK_MAX_DISTANCE);
+      double maxDistance = Math.max(ServerConfig.STALK_MIN_DISTANCE, ServerConfig.STALK_MAX_DISTANCE);
+      boolean hasLineOfSight = this.caveDweller.getSensing().hasLineOfSight(target);
+      boolean beingWatched = this.caveDweller.isLookingAtMe(target);
+
+      if (distance < minDistance || (beingWatched && distance < (minDistance + maxDistance) / 2.0)) {
+         Vec3 away = DefaultRandomPos.getPosAway(this.caveDweller, 16, 7, target.position());
+         if (away != null) {
+            this.caveDweller.getNavigation().moveTo(away.x, away.y, away.z, 1.0);
+         }
+      } else if (!hasLineOfSight || distance > maxDistance) {
+         this.caveDweller.getNavigation().moveTo(target, 0.7);
+      } else {
+         this.caveDweller.getNavigation().stop();
+      }
+   }
+
+   private void endStalking() {
+      this.stalkTicksLeft = 0;
+      this.caveDweller.getNavigation().stop();
+      this.currentTicksUntilChase = this.ticksUntilChase;
+      this.ticksUntilLeave = Utils.secondsToTicks(ServerConfig.TIME_UNTIL_LEAVE_CHASE);
+   }
+
    private void tickAggroClock() {
+      if (this.caveDweller.isSurfaceStalker()) {
+         return;
+      }
+
       this.currentTicksUntilChase--;
       if (this.currentTicksUntilChase <= 0.0F) {
          this.caveDweller.getEntityData().set(CaveDwellerEntity.AGGRO_ACCESSOR, true);
@@ -301,6 +373,10 @@ public class CaveDwellerChaseGoal extends Goal {
    }
 
    private void aggroTick() {
+      if (this.caveDweller.isSurfaceStalker()) {
+         return;
+      }
+
       this.caveDweller.playChaseSound();
       LivingEntity target = this.caveDweller.getTarget();
       boolean shouldUseShortPath = true;

@@ -22,7 +22,6 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -59,6 +58,9 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
     public static final EntityDataAccessor<Boolean> SPOTTED_ACCESSOR = SynchedEntityData.defineId(CaveDwellerEntity.class, EntityDataSerializers.BOOLEAN);
     public static final EntityDataAccessor<Boolean> CLIMBING_ACCESSOR = SynchedEntityData.defineId(CaveDwellerEntity.class, EntityDataSerializers.BOOLEAN);
 
+    /** Scoreboard tags are saved with the entity, so the mode survives chunk unloading and restarts. */
+    public static final String STALKER_TAG = "cave_dweller_surface_stalker";
+
     private final float twoBlockSpaceCooldown;
     public Roll currentRoll = Roll.STROLL;
     public boolean fakeSize;
@@ -80,8 +82,6 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         this.refreshDimensions();
         this.twoBlockSpaceCooldown = 5.0F;
         this.ticksTillRemove = Utils.secondsToTicks(ServerConfig.TIME_UNTIL_LEAVE);
-        // Start out stalking instead of aimlessly wandering
-        this.currentRoll = this.getRandom().nextDouble() < ServerConfig.STALK_CHANCE ? Roll.STARE : Roll.STROLL;
     }
 
     @Nullable
@@ -137,54 +137,39 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         if (ServerConfig.CAN_BREAK_DOOR) {
             this.goalSelector.addGoal(2, new CaveDwellerBreakDoorGoal(this, difficulty -> true));
         }
-        if (ServerConfig.CAN_BREAK_BLOCKS) {
-            this.goalSelector.addGoal(2, new CaveDwellerBreakBlocksGoal(this));
-        }
         this.goalSelector.addGoal(3, new CaveDwellerStrollGoal(this, 0.7));
         this.targetSelector.addGoal(1, new CaveDwellerTargetTooCloseGoal(this, 12.0F));
         this.targetSelector.addGoal(2, new CaveDwellerTargetSeesMeGoal(this));
     }
 
-    /**
-     * Finds a standable spot (3 free blocks of height, solid floor) 16-30 blocks from the player, within 20 blocks
-     * below / 6 above. Returns null when nothing suitable is found, so the caller can skip the spawn instead of
-     * placing him inside rock or below the world.
-     */
-    @Nullable
     public Vec3 generatePos(Entity player) {
         Vec3 playerPos = player.position();
         Random rand = new Random();
-        Level level = this.level();
-        for (int attempt = 0; attempt < 60; attempt++) {
-            int x = (int) Math.floor(playerPos.x) + rand.nextInt(61) - 30;
-            int z = (int) Math.floor(playerPos.z) + rand.nextInt(61) - 30;
-            double dx = x + 0.5 - playerPos.x;
-            double dz = z + 0.5 - playerPos.z;
-            if (dx * dx + dz * dz < 16.0 * 16.0) continue;
-            for (int y = (int) Math.floor(playerPos.y) + 6; y >= (int) Math.floor(playerPos.y) - 20; y--) {
-                if (!Utils.blocksMotion(level, new BlockPos(x, y, z))
-                        && !Utils.blocksMotion(level, new BlockPos(x, y + 1, z))
-                        && !Utils.blocksMotion(level, new BlockPos(x, y + 2, z))
-                        && Utils.blocksMotion(level, new BlockPos(x, y - 1, z))) {
-                    // Final safety net: his real hitbox must not touch any block or liquid at this spot
-                    this.setPos(x + 0.5, y, z + 0.5);
-                    if (!level.noCollision(this) || level.containsAnyLiquid(this.getBoundingBox())) break;
-                    return new Vec3(x + 0.5, y, z + 0.5);
-                }
+        double randX = rand.nextInt(70) - 35;
+        double randZ = rand.nextInt(70) - 35;
+        int posX = (int) (playerPos.x + randX);
+        int posY = (int) (playerPos.y + 10.0);
+        int posZ = (int) (playerPos.z + randZ);
+
+        for (int runFor = 100; runFor >= 0; posY--) {
+            BlockPos p1 = new BlockPos(posX, posY, posZ);
+            BlockPos p2 = new BlockPos(posX, posY + 1, posZ);
+            BlockPos p3 = new BlockPos(posX, posY + 2, posZ);
+            BlockPos p4 = new BlockPos(posX, posY - 1, posZ);
+            runFor--;
+            if (!Utils.blocksMotion(this.level(), p1)
+                    && !Utils.blocksMotion(this.level(), p2)
+                    && !Utils.blocksMotion(this.level(), p3)
+                    && Utils.blocksMotion(this.level(), p4)) {
+                break;
             }
         }
-        return null;
+        return new Vec3(posX, posY, posZ);
     }
 
     @Override
     protected boolean canRide(@NotNull Entity vehicle) {
         return ServerConfig.ALLOW_RIDING && super.canRide(vehicle);
-    }
-
-    /** He squeezes through tight gaps and breaks blocks, so being inside a block must never hurt him. */
-    @Override
-    public boolean isInvulnerableTo(@NotNull ServerLevel level, @NotNull DamageSource source) {
-        return source.is(DamageTypes.IN_WALL) || super.isInvulnerableTo(level, source);
     }
 
     /** Replaces the old MixinLivingEntity#travel(HEAD) cancel. */
@@ -196,6 +181,14 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
 
     @Override
     public void tick() {
+        if (!this.level().isClientSide() && this.isSurfaceStalker()) {
+            this.currentRoll = Roll.CHASE;
+            if (!this.level().isDarkOutside()) {
+                this.playDisappearSound();
+                this.discard();
+            }
+        }
+
         this.ticksTillRemove--;
         if (this.ticksTillRemove <= 0) {
             this.playDisappearSound();
@@ -242,14 +235,23 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
     }
 
     public void reRoll() {
-        // 25% chase, 50% keep stalking, 25% flee
-        int[] table = {0, 1, 1, 2};
-        this.currentRoll = Roll.fromValue(table[new Random().nextInt(table.length)]);
+        this.currentRoll = this.isSurfaceStalker() ? Roll.CHASE : Roll.fromValue(new Random().nextInt(3));
+    }
+
+    /** Surface stalkers only watch and follow at a distance - they never charge or attack. */
+    public boolean isSurfaceStalker() { return this.getTags().contains(STALKER_TAG); }
+
+    public void makeSurfaceStalker() {
+        this.addTag(STALKER_TAG);
+        this.currentRoll = Roll.CHASE;
+        this.ticksTillRemove = Utils.secondsToTicks(ServerConfig.SURFACE_STALK_TIME);
     }
 
     public void pickRoll(@NotNull List<Roll> rolls) { this.currentRoll = rolls.get(new Random().nextInt(rolls.size())); }
 
-    public Path createShortPath(LivingEntity target) {
+    @Nullable
+    public Path createShortPath(@Nullable LivingEntity target) {
+        if (target == null) return null; // vanilla 26.x throws a NullPointerException instead of returning no path
         this.fakeSize = true;
         this.refreshDimensions();
         Path shortPath = this.getNavigation().createPath(target, 0);

@@ -46,18 +46,6 @@ public class ServerConfig {
    public static boolean CAN_BREAK_DOOR = true;
    @ConfigEntry(description = "Time (in seconds) it takes the Cave Dweller to break down a door")
    public static int BREAK_DOOR_TIME = 3;
-   @ConfigEntry(description = "Whether the Cave Dweller breaks blocks that stand in its way while chasing")
-   public static boolean CAN_BREAK_BLOCKS = true;
-   @ConfigEntry(description = "Time (in seconds) the Cave Dweller needs to break through blocks in its way")
-   public static int BREAK_BLOCK_TIME = 1;
-   @ConfigEntry(description = "Maximum block hardness the Cave Dweller can break (stone 1.5, deepslate 3, obsidian 50)")
-   public static double BREAK_BLOCK_MAX_HARDNESS = 10.0;
-   @ConfigEntry(description = "Chance (0-1) that a new Cave Dweller starts out stalking (creeps closer while unseen, freezes when looked at)")
-   public static double STALK_CHANCE = 0.7;
-   @ConfigEntry(description = "While stalking, the Cave Dweller occasionally snuffs out torches and lanterns near the player")
-   public static boolean SNUFF_LIGHTS = true;
-   @ConfigEntry(description = "While stalking, the Cave Dweller occasionally makes the player's vision go dark")
-   public static boolean CREEPY_DARKNESS = true;
    @ConfigEntry(description = "Allow the Cave Dweller to follow vanilla riding logic (e.g. boats)")
    public static boolean ALLOW_RIDING = false;
    @ConfigEntry(description = "Whether invisible players can be targets or not")
@@ -70,6 +58,24 @@ public class ServerConfig {
    public static double ATTACK_SPEED = 0.35;
    @ConfigEntry(description = "Movement speed")
    public static double MOVEMENT_SPEED = 0.5;
+   @ConfigEntry(description = "Minimum time in seconds he stalks you (keeps his distance, stays in sight) before charging")
+   public static int STALK_MIN_TIME = 20;
+   @ConfigEntry(description = "Maximum time in seconds he stalks you before charging")
+   public static int STALK_MAX_TIME = 60;
+   @ConfigEntry(description = "While stalking he backs away if you come closer than this many blocks")
+   public static int STALK_MIN_DISTANCE = 14;
+   @ConfigEntry(description = "While stalking he moves closer if you are further away than this many blocks or out of line of sight")
+   public static int STALK_MAX_DISTANCE = 28;
+   @ConfigEntry(description = "If true he sometimes stalks players on the surface at night (he never attacks in this mode)")
+   public static boolean SURFACE_STALKING = true;
+   @ConfigEntry(description = "Minimum time in seconds between surface stalking visits")
+   public static int SURFACE_STALK_COOLDOWN_MIN = 180;
+   @ConfigEntry(description = "Maximum time in seconds between surface stalking visits")
+   public static int SURFACE_STALK_COOLDOWN_MAX = 420;
+   @ConfigEntry(description = "Chance (0 to 1) that a visit actually happens once the cooldown is over")
+   public static double SURFACE_STALK_CHANCE = 0.6;
+   @ConfigEntry(description = "How long in seconds a surface stalker stays before leaving")
+   public static int SURFACE_STALK_TIME = 180;
    private static final File propertiesFile = new File("config/cave_dweller.properties");
 
    public static void load() {
