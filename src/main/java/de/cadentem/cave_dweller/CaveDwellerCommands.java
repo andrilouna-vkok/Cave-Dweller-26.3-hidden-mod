@@ -19,6 +19,7 @@ import net.minecraft.world.entity.Entity;
  * /BetterImprovements spawn [player]   visible dweller near the player that immediately hunts them
  * /BetterImprovements scare [player]   cave noise + a hidden dweller that stalks the player like a natural spawn
  * /BetterImprovements status [player]  why a natural spawn near the player would / would not happen, plus the timer
+ * /BetterImprovements stalk [player]  night-only: a stalker that follows at a distance and never attacks (leaves at dawn)
  * /BetterImprovements skip             sets the spawn timer to 0 so a natural spawn can happen right away
  * /BetterImprovements remove           removes every Cave Dweller in your dimension
  * /BetterImprovements reload           reloads config/cave_dweller.properties
@@ -42,6 +43,10 @@ public final class CaveDwellerCommands {
                         .executes(ctx -> status(ctx.getSource(), ctx.getSource().getPlayerOrException()))
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> status(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))))
+                .then(Commands.literal("stalk")
+                        .executes(ctx -> stalk(ctx.getSource(), ctx.getSource().getPlayerOrException()))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(ctx -> stalk(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))))
                 .then(Commands.literal("skip").executes(ctx -> skip(ctx.getSource())))
                 .then(Commands.literal("remove").executes(ctx -> remove(ctx.getSource())))
                 .then(Commands.literal("reload").executes(ctx -> reload(ctx.getSource()))));
@@ -66,6 +71,16 @@ public final class CaveDwellerCommands {
         return 1;
     }
 
+    private static int stalk(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
+        String problem = CaveDweller.instance.spawnSurfaceStalker(target);
+        if (problem != null) {
+            source.sendFailure(Component.literal("Couldn't spawn a surface stalker: " + problem));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Something is following " + target.getName().getString() + " at a distance (leaves at dawn)"), true);
+        return 1;
+    }
+
     private static int status(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
         List<String> lines = CaveDweller.instance.spelunkerReport(target);
         source.sendSuccess(() -> Component.literal("Cave Dweller spawn check for " + target.getName().getString() + ":"), false);
@@ -77,6 +92,7 @@ public final class CaveDwellerCommands {
 
     private static int skip(CommandSourceStack source) {
         CaveDweller.instance.setCalmTimer(0);
+        CaveDweller.instance.setSurfaceTimer(0);
         source.sendSuccess(() -> Component.literal("Spawn timer set to 0 - he can arrive any moment"), true);
         return 1;
     }

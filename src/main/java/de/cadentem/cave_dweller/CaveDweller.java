@@ -177,6 +177,7 @@ public class CaveDweller implements ModInitializer {
         }
         lines.add("Spawn timer: " + Math.max(0, this.calmTimer / 20) + "s left"
                 + " (once 0: " + String.format("%.1f", ServerConfig.SPAWN_CHANCE_PER_TICK * 100) + "% chance per tick)");
+        lines.addAll(this.surfaceReport(player));
         return lines;
     }
 
@@ -203,12 +204,54 @@ public class CaveDweller implements ModInitializer {
         Vec3 position = this.findSurfacePosition(level, victim);
         if (position == null) return false;
 
+        this.createStalker(level, position);
+        return true;
+    }
+
+    private void createStalker(ServerLevel level, Vec3 position) {
         CaveDwellerEntity stalker = new CaveDwellerEntity(ModEntityTypes.CAVE_DWELLER, level);
         stalker.makeSurfaceStalker();
         stalker.setInvisible(true);
         stalker.setPos(position);
         level.addFreshEntity(stalker);
-        return true;
+    }
+
+    public int getSurfaceTimer() {
+        return this.surfaceTimer;
+    }
+
+    public void setSurfaceTimer(int ticks) {
+        this.surfaceTimer = ticks;
+    }
+
+    /** Spawns a surface stalker near the victim right now. Returns null on success, otherwise the reason it failed. */
+    @org.jetbrains.annotations.Nullable
+    public String spawnSurfaceStalker(ServerPlayer victim) {
+        ServerLevel level = (ServerLevel) victim.level();
+        if (level.dimension() != Level.OVERWORLD) return "he only appears in the Overworld";
+        if (!level.isDarkOutside()) return "it is not night (stalkers leave at dawn)";
+        Vec3 position = this.findSurfacePosition(level, victim);
+        if (position == null) return "no suitable ground 22-36 blocks away (water, steep cliffs or unloaded chunks) - try again from another spot";
+        this.createStalker(level, position);
+        return null;
+    }
+
+    private List<String> surfaceReport(ServerPlayer player) {
+        List<String> lines = new ArrayList<>();
+        ServerLevel level = (ServerLevel) player.level();
+        lines.add("--- Night surface stalking ---");
+        lines.add(flag(ServerConfig.SURFACE_STALKING, "SURFACE_STALKING is enabled in the config"));
+        lines.add(flag(level.isDarkOutside(), "It is night (the surface timer only counts down at night)"));
+        lines.add(flag(Utils.isValidPlayer(player) && level.canSeeSky(player.blockPosition()), "You are outside under open sky"));
+        boolean exists = false;
+        for (net.minecraft.world.entity.Entity entity : level.getAllEntities()) {
+            if (entity instanceof CaveDwellerEntity) { exists = true; break; }
+        }
+        lines.add(flag(!exists, "No Cave Dweller currently exists"));
+        lines.add(flag(this.findSurfacePosition(level, player) != null, "A spawn spot exists 22-36 blocks away (not water, not a cliff)"));
+        lines.add("Surface timer: " + Math.max(0, this.surfaceTimer / 20) + "s left, then a "
+                + (int) (ServerConfig.SURFACE_STALK_CHANCE * 100) + "% chance he comes. Use /BetterImprovements stalk to test now.");
+        return lines;
     }
 
     private Vec3 findSurfacePosition(ServerLevel level, ServerPlayer player) {
