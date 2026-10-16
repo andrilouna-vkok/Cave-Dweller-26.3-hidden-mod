@@ -16,7 +16,7 @@ AND on every client (the entity has a client renderer). Config: `config/cave_dwe
 - Eyes: glowmask rebuilt (256x256, bright red, matches the base texture); `AutoGlowingGeoLayer` enabled (class path verified against GeckoLib source).
 - Spawn egg: self-contained model + textures (no dependency on vanilla template paths).
 - Block breaking: new `CaveDwellerBreakBlocksGoal` (config: CAN_BREAK_BLOCKS, BREAK_BLOCK_TIME, BREAK_BLOCK_MAX_HARDNESS).
-- Commands (op only): `/etterImprovements spawn|scare|status|skip|remove|reload`. `status` lists every natural-spawn condition.
+- Commands (op only): `/BetterImprovements spawn|scare|status|skip|remove|reload`. `status` lists every natural-spawn condition.
   If `Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)` does not compile, delete that `.requires(...)` line.
 - Natural spawn: Overworld only, player Y <= 40, sky light <= 8, not open to sky, survival mode, then a 5-10 min
   timer (40% chance of 20 min) after world load. `/BetterImprovements skip` zeroes the timer for testing.
