@@ -21,6 +21,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.LightLayer;
 import org.slf4j.Logger;
 
@@ -69,12 +70,13 @@ public class CaveDweller implements ModInitializer {
             if (!this.spelunkers.isEmpty()) {
                 ServerPlayer victim = this.spelunkers.get(this.random.nextInt(this.spelunkers.size()));
                 overworld.getPlayers(this::playCaveSoundToSpelunkers);
-                CaveDwellerEntity caveDweller = new CaveDwellerEntity(ModEntityTypes.CAVE_DWELLER, overworld);
-                caveDweller.setInvisible(true);
-                caveDweller.setPos(caveDweller.generatePos(victim));
-                overworld.addFreshEntity(caveDweller);
-                this.resetCalmTimer();
-                this.resetNoiseTimer();
+                CaveDwellerEntity caveDweller = this.spawnFor(victim, false);
+                if (caveDweller != null) {
+                    this.resetCalmTimer();
+                    this.resetNoiseTimer();
+                } else {
+                    LOG.debug("No valid spawn spot near {} - will retry", victim.getName().getString());
+                }
             }
         }
     }
@@ -125,11 +127,14 @@ public class CaveDweller implements ModInitializer {
     }
 
     /** Spawns a Cave Dweller near the victim; invisible ones behave like natural spawns (they stalk until noticed). */
+    @org.jetbrains.annotations.Nullable
     public CaveDwellerEntity spawnFor(ServerPlayer victim, boolean visible) {
         ServerLevel level = (ServerLevel) victim.level();
         CaveDwellerEntity dweller = new CaveDwellerEntity(ModEntityTypes.CAVE_DWELLER, level);
         dweller.setInvisible(!visible);
-        dweller.setPos(dweller.generatePos(victim));
+        Vec3 pos = dweller.generatePos(victim);
+        if (pos == null) return null;
+        dweller.setPos(pos);
         if (visible) dweller.setTarget(victim);
         level.addFreshEntity(dweller);
         return dweller;
@@ -152,11 +157,16 @@ public class CaveDweller implements ModInitializer {
         boolean surface = level.canSeeSky(player.blockPosition());
         lines.add(flag(ServerConfig.ALLOW_SURFACE_SPAWN || !surface, "Not open to the sky (surface spawns "
                 + (ServerConfig.ALLOW_SURFACE_SPAWN ? "allowed" : "disabled") + ")"));
-        boolean exists = false;
+        CaveDwellerEntity existing = null;
         for (net.minecraft.world.entity.Entity entity : level.getAllEntities()) {
-            if (entity instanceof CaveDwellerEntity) { exists = true; break; }
+            if (entity instanceof CaveDwellerEntity dweller) { existing = dweller; break; }
         }
-        lines.add(flag(!exists, "No Cave Dweller currently exists"));
+        lines.add(flag(existing == null, "No Cave Dweller currently exists (one blocks new spawns and keeps resetting the timer)"));
+        if (existing != null) {
+            lines.add("  His position: " + (int) existing.getX() + " " + (int) existing.getY() + " " + (int) existing.getZ()
+                    + " (" + (int) existing.distanceTo(player) + " blocks away, "
+                    + (existing.isInvisible() ? "still hidden" : "visible") + ")");
+        }
         lines.add("Spawn timer: " + Math.max(0, this.calmTimer / 20) + "s left"
                 + " (once 0: " + String.format("%.1f", ServerConfig.SPAWN_CHANCE_PER_TICK * 100) + "% chance per tick)");
         return lines;
