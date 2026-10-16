@@ -27,7 +27,7 @@ public final class CaveDwellerCommands {
     private CaveDwellerCommands() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("cavedweller")
+        dispatcher.register(Commands.literal("BetterImprovements")
                 // If this line does not compile on 26.3, delete it: the commands are then available to everyone.
                 .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                 .then(Commands.literal("spawn")
