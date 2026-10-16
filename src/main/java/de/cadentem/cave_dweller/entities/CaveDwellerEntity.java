@@ -22,6 +22,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -144,34 +145,46 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         this.targetSelector.addGoal(2, new CaveDwellerTargetSeesMeGoal(this));
     }
 
+    /**
+     * Finds a standable spot (3 free blocks of height, solid floor) 16-30 blocks from the player, within 20 blocks
+     * below / 6 above. Returns null when nothing suitable is found, so the caller can skip the spawn instead of
+     * placing him inside rock or below the world.
+     */
+    @Nullable
     public Vec3 generatePos(Entity player) {
         Vec3 playerPos = player.position();
         Random rand = new Random();
-        double randX = rand.nextInt(70) - 35;
-        double randZ = rand.nextInt(70) - 35;
-        int posX = (int) (playerPos.x + randX);
-        int posY = (int) (playerPos.y + 10.0);
-        int posZ = (int) (playerPos.z + randZ);
-
-        for (int runFor = 100; runFor >= 0; posY--) {
-            BlockPos p1 = new BlockPos(posX, posY, posZ);
-            BlockPos p2 = new BlockPos(posX, posY + 1, posZ);
-            BlockPos p3 = new BlockPos(posX, posY + 2, posZ);
-            BlockPos p4 = new BlockPos(posX, posY - 1, posZ);
-            runFor--;
-            if (!Utils.blocksMotion(this.level(), p1)
-                    && !Utils.blocksMotion(this.level(), p2)
-                    && !Utils.blocksMotion(this.level(), p3)
-                    && Utils.blocksMotion(this.level(), p4)) {
-                break;
+        Level level = this.level();
+        for (int attempt = 0; attempt < 60; attempt++) {
+            int x = (int) Math.floor(playerPos.x) + rand.nextInt(61) - 30;
+            int z = (int) Math.floor(playerPos.z) + rand.nextInt(61) - 30;
+            double dx = x + 0.5 - playerPos.x;
+            double dz = z + 0.5 - playerPos.z;
+            if (dx * dx + dz * dz < 16.0 * 16.0) continue;
+            for (int y = (int) Math.floor(playerPos.y) + 6; y >= (int) Math.floor(playerPos.y) - 20; y--) {
+                if (!Utils.blocksMotion(level, new BlockPos(x, y, z))
+                        && !Utils.blocksMotion(level, new BlockPos(x, y + 1, z))
+                        && !Utils.blocksMotion(level, new BlockPos(x, y + 2, z))
+                        && Utils.blocksMotion(level, new BlockPos(x, y - 1, z))) {
+                    // Final safety net: his real hitbox must not touch any block or liquid at this spot
+                    this.setPos(x + 0.5, y, z + 0.5);
+                    if (!level.noCollision(this) || level.containsAnyLiquid(this.getBoundingBox())) break;
+                    return new Vec3(x + 0.5, y, z + 0.5);
+                }
             }
         }
-        return new Vec3(posX, posY, posZ);
+        return null;
     }
 
     @Override
     protected boolean canRide(@NotNull Entity vehicle) {
         return ServerConfig.ALLOW_RIDING && super.canRide(vehicle);
+    }
+
+    /** He squeezes through tight gaps and breaks blocks, so being inside a block must never hurt him. */
+    @Override
+    public boolean isInvulnerableTo(@NotNull ServerLevel level, @NotNull DamageSource source) {
+        return source.is(DamageTypes.IN_WALL) || super.isInvulnerableTo(level, source);
     }
 
     /** Replaces the old MixinLivingEntity#travel(HEAD) cancel. */

@@ -48,14 +48,20 @@ public final class CaveDwellerCommands {
     }
 
     private static int spawn(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
-        CaveDweller.instance.spawnFor(target, true);
+        if (CaveDweller.instance.spawnFor(target, true) == null) {
+            source.sendFailure(Component.literal("No valid spot found near " + target.getName().getString() + " - try again"));
+            return 0;
+        }
         source.sendSuccess(() -> Component.literal("Spawned a Cave Dweller near " + target.getName().getString()), true);
         return 1;
     }
 
     private static int scare(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
         target.playSound(ModSounds.CAVENOISE_1, 2.0F, 1.0F);
-        CaveDweller.instance.spawnFor(target, false);
+        if (CaveDweller.instance.spawnFor(target, false) == null) {
+            source.sendFailure(Component.literal("No valid spot found near " + target.getName().getString() + " - try again"));
+            return 0;
+        }
         source.sendSuccess(() -> Component.literal("Something is watching " + target.getName().getString() + "..."), true);
         return 1;
     }
