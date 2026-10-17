@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "cave_dweller:item/cave_dweller_spawn_egg",
+    "layer1": "cave_dweller:item/cave_dweller_spawn_egg_overlay"
+  }
+}

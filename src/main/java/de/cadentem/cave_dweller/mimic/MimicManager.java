@@ -1,5 +1,10 @@
 package de.cadentem.cave_dweller.mimic;
 
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.GoalSelector;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
 import de.cadentem.cave_dweller.CaveDweller;
 import de.cadentem.cave_dweller.config.ServerConfig;
 import de.cadentem.cave_dweller.entities.CaveDwellerEntity;
@@ -26,7 +31,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -35,6 +39,11 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
+@Mixin(Mob.class)
+interface MobAccessor {
+    @Accessor("targetSelector")
+    GoalSelector getTargetSelector();
+}
 /**
  * Player mimic: a "player" (skin + name of a real online player) that wanders or stares and creeps closer while
  * nobody is looking. Once the target gets within MIMIC_TRIGGER_DISTANCE blocks (or hits it) it turns into a
@@ -219,7 +228,7 @@ public final class MimicManager {
         if (name == null) name = "";
 
         // The invisible body that does the walking
-        PathfinderMob body = EntityType.HUSK.create(level, EntitySpawnReason.COMMAND);
+        PathfinderMob body = EntityTypes.HUSK.create(level, EntitySpawnReason.COMMAND);
         if (body == null) {
             skin.discard();
             return "the mimic's body could not be created";
@@ -232,8 +241,9 @@ public final class MimicManager {
         if (body.getAttribute(Attributes.FOLLOW_RANGE) != null) {
             body.getAttribute(Attributes.FOLLOW_RANGE).setBaseValue(64.0);
         }
-        body.goalSelector.getAvailableGoals().clear();
-        body.targetSelector.getAvailableGoals().clear();
+        
+        body.getGoalSelector().getAvailableGoals().clear();
+     ((MobAccessor) body).getTargetSelector().getAvailableGoals().clear();
 
         int wander = 0;
         if (RANDOM.nextDouble() >= ServerConfig.MIMIC_STARE_CHANCE) {
@@ -243,8 +253,8 @@ public final class MimicManager {
         }
         Mimic mimic = new Mimic(body.getUUID(), skinId, victim.getUUID(), name,
                 Utils.secondsToTicks(Math.max(10, ServerConfig.MIMIC_TIME)), wander);
-        body.goalSelector.addGoal(0, new FloatGoal(body));
-        body.goalSelector.addGoal(1, new MimicGoal(body, mimic));
+        body.getGoalSelector().addGoal(0, new FloatGoal(body));
+        body.getGoalSelector().addGoal(1, new MimicGoal(body, mimic));
         level.addFreshEntity(body);
         ACTIVE.add(mimic);
 
