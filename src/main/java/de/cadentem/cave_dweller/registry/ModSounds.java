@@ -29,7 +29,7 @@ public class ModSounds {
     public static final SoundEvent DWELLER_DEATH = register("dweller_death");
 
     private static SoundEvent register(String name) {
-        Identifier id = Identifier.fromNamespaceAndPath("cave_dweller", name);
+        Identifier id = Identifier.fromNamespaceAndPath("betterimprovements", name);
         return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
     }
 

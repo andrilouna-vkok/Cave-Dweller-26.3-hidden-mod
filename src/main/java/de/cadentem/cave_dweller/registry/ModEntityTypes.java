@@ -10,7 +10,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 
 public class ModEntityTypes {
-    private static final Identifier ID = Identifier.fromNamespaceAndPath("cave_dweller", "cave_dweller");
+    private static final Identifier ID = Identifier.fromNamespaceAndPath("betterimprovements", "cave_dweller");
     private static final ResourceKey<EntityType<?>> KEY = ResourceKey.create(Registries.ENTITY_TYPE, ID);
 
     public static final EntityType<CaveDwellerEntity> CAVE_DWELLER =

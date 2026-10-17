@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import de.cadentem.cave_dweller.config.ServerConfig;
 import de.cadentem.cave_dweller.entities.CaveDwellerEntity;
+import de.cadentem.cave_dweller.mimic.MimicManager;
 import de.cadentem.cave_dweller.registry.ModSounds;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ import net.minecraft.world.entity.Entity;
  * /BetterImprovements scare [player]   cave noise + a hidden dweller that stalks the player like a natural spawn
  * /BetterImprovements status [player]  why a natural spawn near the player would / would not happen, plus the timer
  * /BetterImprovements stalk [player]  night-only: a stalker that follows at a distance and never attacks (leaves at dawn)
+ * /BetterImprovements mimic [target [copy|steve]]  a fake copy of an online player (skin + name) near the target; turns into a charging dweller at 2 blocks
  * /BetterImprovements skip             sets the spawn timer to 0 so a natural spawn can happen right away
  * /BetterImprovements remove           removes every Cave Dweller in your dimension
  * /BetterImprovements reload           reloads config/cave_dweller.properties
@@ -47,6 +49,15 @@ public final class CaveDwellerCommands {
                         .executes(ctx -> stalk(ctx.getSource(), ctx.getSource().getPlayerOrException()))
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> stalk(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))))
+                .then(Commands.literal("mimic")
+                        .executes(ctx -> mimic(ctx.getSource(), ctx.getSource().getPlayerOrException(), null, false))
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .executes(ctx -> mimic(ctx.getSource(), EntityArgument.getPlayer(ctx, "target"), null, false))
+                                .then(Commands.literal("steve")
+                                        .executes(ctx -> mimic(ctx.getSource(), EntityArgument.getPlayer(ctx, "target"), null, true)))
+                                .then(Commands.argument("copy", EntityArgument.player())
+                                        .executes(ctx -> mimic(ctx.getSource(), EntityArgument.getPlayer(ctx, "target"),
+                                                EntityArgument.getPlayer(ctx, "copy"), false)))))
                 .then(Commands.literal("skip").executes(ctx -> skip(ctx.getSource())))
                 .then(Commands.literal("remove").executes(ctx -> remove(ctx.getSource())))
                 .then(Commands.literal("reload").executes(ctx -> reload(ctx.getSource()))));
@@ -81,6 +92,16 @@ public final class CaveDwellerCommands {
         return 1;
     }
 
+    private static int mimic(CommandSourceStack source, ServerPlayer target, ServerPlayer copy, boolean anonymous) {
+        String problem = MimicManager.spawnNow(source.getServer(), target, copy, anonymous);
+        if (problem != null) {
+            source.sendFailure(Component.literal("Couldn't spawn a mimic: " + problem));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Someone is wandering near " + target.getName().getString() + "..."), true);
+        return 1;
+    }
+
     private static int status(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
         List<String> lines = CaveDweller.instance.spelunkerReport(target);
         source.sendSuccess(() -> Component.literal("Cave Dweller spawn check for " + target.getName().getString() + ":"), false);
@@ -105,6 +126,7 @@ public final class CaveDwellerCommands {
         }
         found.forEach(Entity::discard);
         int count = found.size();
+        MimicManager.removeAll(source.getServer());
         source.sendSuccess(() -> Component.literal("Removed " + count + " Cave Dweller(s)"), true);
         return count;
     }

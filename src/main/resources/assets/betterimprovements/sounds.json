@@ -1,0 +1,128 @@
+{
+  "cavenoise_1": {
+    "subtitle": "sound.betterimprovements:cavenoise_1",
+    "sounds": [
+      "betterimprovements:cavenoise_1"
+    ]
+  },
+  "cavenoise_2": {
+    "subtitle": "sound.betterimprovements.cavenoise_2",
+    "sounds": [
+      "betterimprovements:cavenoise_2"
+    ]
+  },
+  "cavenoise_3": {
+    "subtitle": "sound.betterimprovements.cavenoise_3",
+    "sounds": [
+      "betterimprovements:cavenoise_3"
+    ]
+  },
+  "cavenoise_4": {
+    "subtitle": "sound.betterimprovements.cavenoise_4",
+    "sounds": [
+      "betterimprovements:cavenoise_4"
+    ]
+  },
+  "chase_step_1": {
+    "subtitle": "sound.betterimprovements.chase_step_1",
+    "sounds": [
+      "betterimprovements:chase_step_1"
+    ]
+  },
+  "chase_step_2": {
+    "subtitle": "sound.betterimprovements.chase_step_2",
+    "sounds": [
+      "betterimprovements:chase_step_2"
+    ]
+  },
+  "chase_step_3": {
+    "subtitle": "sound.betterimprovements.chase_step_3",
+    "sounds": [
+      "betterimprovements:chase_step_3"
+    ]
+  },
+  "chase_step_4": {
+    "subtitle": "sound.betterimprovements.chase_step_4",
+    "sounds": [
+      "betterimprovements:chase_step_4"
+    ]
+  },
+  "chase_1": {
+    "subtitle": "sound.betterimprovements.chase_1",
+    "sounds": [
+      "betterimprovements:chase_1"
+    ]
+  },
+  "chase_2": {
+    "subtitle": "sound.betterimprovements.chase_2",
+    "sounds": [
+      "betterimprovements:chase_2"
+    ]
+  },
+  "chase_3": {
+    "subtitle": "sound.betterimprovements.chase_3",
+    "sounds": [
+      "betterimprovements:chase_3"
+    ]
+  },
+  "chase_4": {
+    "subtitle": "sound.betterimprovements.chase_4",
+    "sounds": [
+      "betterimprovements:chase_4"
+    ]
+  },
+  "flee_1": {
+    "subtitle": "sound.betterimprovements.flee_1",
+    "sounds": [
+      "betterimprovements:flee_1"
+    ]
+  },
+  "flee_2": {
+    "subtitle": "sound.betterimprovements.flee_2",
+    "sounds": [
+      "betterimprovements:flee_2"
+    ]
+  },
+  "disappear": {
+    "subtitle": "sound.betterimprovements.disappear",
+    "sounds": [
+      "betterimprovements:disappear"
+    ]
+  },
+  "spotted": {
+    "subtitle": "sound.betterimprovements.spotted",
+    "sounds": [
+      "betterimprovements:spotted"
+    ]
+  },
+  "dweller_death": {
+    "subtitle": "sound.betterimprovements.dweller_death",
+    "sounds": [
+      "betterimprovements:dweller_death"
+    ]
+  },
+  "dweller_hurt_1": {
+    "subtitle": "sound.betterimprovements.dweller_hurt_1",
+    "sounds": [
+      "betterimprovements:dweller_hurt_1"
+    ]
+  },
+  "dweller_hurt_2": {
+    "subtitle": "sound.betterimprovements.dweller_hurt_2",
+    "sounds": [
+      "betterimprovements:dweller_hurt_2"
+    ]
+  },
+  "dweller_hurt_3": {
+    "subtitle": "sound.betterimprovements.dweller_hurt_3",
+    "sounds": [
+      "betterimprovements:dweller_hurt_3"
+    ]
+  },
+  "dweller_hurt_4": {
+    "subtitle": "sound.betterimprovements.dweller_hurt_4",
+    "sounds": [
+      "betterimprovements:dweller_hurt_4"
+    ]
+  }
+}

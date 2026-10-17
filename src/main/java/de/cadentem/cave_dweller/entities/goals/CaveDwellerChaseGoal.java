@@ -6,6 +6,7 @@ import net.minecraft.world.level.pathfinder.Node;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
@@ -46,6 +47,8 @@ public class CaveDwellerChaseGoal extends Goal {
    private boolean squeezing;
    private int stalkTicksLeft;
    private int stalkDecisionDelay;
+   private int vanishCooldown;
+   private int peekTicksLeft;
 
    public CaveDwellerChaseGoal(CaveDwellerEntity caveDweller, double speedModifier, boolean followTargetEvenIfNotSeen, float ticksUntilChase) {
       this.caveDweller = caveDweller;
@@ -64,7 +67,8 @@ public class CaveDwellerChaseGoal extends Goal {
       }
 
       if (this.caveDweller.currentRoll == Roll.CHASE
-         && (this.caveDweller.isSurfaceStalker() || this.caveDweller.isLookingAtMe(this.caveDweller.getTarget()))) {
+         && (this.caveDweller.isSurfaceStalker() || this.caveDweller.immediateCharge
+            || this.caveDweller.isLookingAtMe(this.caveDweller.getTarget()))) {
          long ticks = this.caveDweller.level().getGameTime();
          if (ticks - this.lastGameTimeCheck < 20L) {
             return false;
@@ -114,7 +118,11 @@ public class CaveDwellerChaseGoal extends Goal {
       int minTime = Math.min(ServerConfig.CHASE_STALK_MIN_TIME, ServerConfig.CHASE_STALK_MAX_TIME);
       int maxTime = Math.max(ServerConfig.CHASE_STALK_MIN_TIME, ServerConfig.CHASE_STALK_MAX_TIME);
       int stalkSeconds = Math.max(0, minTime) + this.caveDweller.getRandom().nextInt(Math.max(0, maxTime - minTime) + 1);
-      this.stalkTicksLeft = this.caveDweller.isSurfaceStalker() ? Integer.MAX_VALUE : Utils.secondsToTicks(stalkSeconds);
+      this.stalkTicksLeft = this.caveDweller.isSurfaceStalker() ? Integer.MAX_VALUE
+         : (this.caveDweller.immediateCharge ? 0 : Utils.secondsToTicks(stalkSeconds));
+      if (this.caveDweller.immediateCharge) {
+         this.currentTicksUntilChase = Math.min(this.currentTicksUntilChase, 8.0F);
+      }
       this.stalkDecisionDelay = 0;
       this.caveDweller.setAggressive(true);
       this.ticksUntilNextPathRecalculation = 0;
@@ -189,6 +197,46 @@ public class CaveDwellerChaseGoal extends Goal {
       }
 
       double distance = Math.sqrt(this.caveDweller.distanceToSqr(target));
+
+      // Sudden appearance: stands motionless until the player looks at him, then vanishes
+      if (this.peekTicksLeft > 0) {
+         this.peekTicksLeft--;
+         this.caveDweller.getNavigation().stop();
+         boolean looked = this.caveDweller.isLookingAtMe(target) && this.caveDweller.inLineOfSight(target);
+         if (looked || this.caveDweller.hurtTime > 0 || this.peekTicksLeft <= 0) {
+            this.peekTicksLeft = 0;
+            this.vanishCooldown = Utils.secondsToTicks(20);
+            if (!this.vanishAndReposition(target)) {
+               this.smokePuff(this.caveDweller.position());
+               this.caveDweller.playDisappearSound();
+               this.caveDweller.discard();
+            }
+         }
+         return;
+      }
+
+      if (this.vanishCooldown <= 0 && ServerConfig.PEEK_CHANCE > 0.0
+            && this.caveDweller.getRandom().nextDouble() < ServerConfig.PEEK_CHANCE / 20.0) {
+         Vec3 peekPos = this.caveDweller.generatePeekPos(target);
+         if (peekPos != null) {
+            this.smokePuff(this.caveDweller.position());
+            this.caveDweller.getNavigation().stop();
+            this.caveDweller.setDeltaMovement(Vec3.ZERO);
+            this.caveDweller.setPos(peekPos.x, peekPos.y, peekPos.z);
+            this.smokePuff(peekPos);
+            this.peekTicksLeft = Utils.secondsToTicks(ServerConfig.PEEK_MAX_SECONDS);
+            return;
+         }
+      }
+
+      if (this.vanishCooldown > 0) {
+         this.vanishCooldown--;
+      } else if (stalkOnly && ServerConfig.VANISH_DISTANCE > 0
+            && (distance < ServerConfig.VANISH_DISTANCE || this.caveDweller.hurtTime > 0)
+            && this.vanishAndReposition(target)) {
+         return;
+      }
+
       if (!stalkOnly && (this.stalkTicksLeft <= 0 || distance < 5.0)) {
          this.endStalking();
          return;
@@ -214,6 +262,30 @@ public class CaveDwellerChaseGoal extends Goal {
          this.caveDweller.getNavigation().moveTo(target, 0.7);
       } else {
          this.caveDweller.getNavigation().stop();
+      }
+   }
+
+   /** Vanishes in a puff of smoke and reappears 16-30 blocks away. Returns false when no safe spot was found. */
+   private boolean vanishAndReposition(LivingEntity target) {
+      Vec3 newPos = this.caveDweller.generatePos(target);
+      if (newPos == null) {
+         return false;
+      }
+
+      this.smokePuff(this.caveDweller.position());
+      this.caveDweller.playDisappearSound();
+      this.caveDweller.getNavigation().stop();
+      this.caveDweller.setDeltaMovement(Vec3.ZERO);
+      this.caveDweller.setPos(newPos.x, newPos.y, newPos.z);
+      this.smokePuff(newPos);
+      this.vanishCooldown = 60;
+      this.stalkDecisionDelay = 0;
+      return true;
+   }
+
+   private void smokePuff(Vec3 pos) {
+      if (this.caveDweller.level() instanceof ServerLevel serverLevel) {
+         serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, pos.x, pos.y + 1.0, pos.z, 25, 0.3, 0.8, 0.3, 0.02);
       }
    }
 

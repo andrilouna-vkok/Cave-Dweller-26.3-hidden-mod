@@ -12,7 +12,7 @@ import net.minecraft.world.item.SpawnEggItem;
 
 public class ModItems {
     private static final ResourceKey<Item> KEY = ResourceKey.create(Registries.ITEM,
-            Identifier.fromNamespaceAndPath("cave_dweller", "cave_dweller_spawn_egg"));
+            Identifier.fromNamespaceAndPath("betterimprovements", "cave_dweller_spawn_egg"));
 
     public static final Item CAVE_DWELLER_SPAWN_EGG =
             new SpawnEggItem(new Item.Properties().setId(KEY).spawnEgg(ModEntityTypes.CAVE_DWELLER));

@@ -3,6 +3,7 @@ package de.cadentem.cave_dweller;
 import com.mojang.logging.LogUtils;
 import de.cadentem.cave_dweller.config.ServerConfig;
 import de.cadentem.cave_dweller.entities.CaveDwellerEntity;
+import de.cadentem.cave_dweller.mimic.MimicManager;
 import de.cadentem.cave_dweller.registry.ModEntityTypes;
 import de.cadentem.cave_dweller.registry.ModItems;
 import de.cadentem.cave_dweller.registry.ModSounds;
@@ -28,7 +29,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import org.slf4j.Logger;
 
 public class CaveDweller implements ModInitializer {
-    public static final String MODID = "cave_dweller";
+    public static final String MODID = "betterimprovements";
     public static final Logger LOG = LogUtils.getLogger();
     public static boolean doReload;
     public static CaveDweller instance;
@@ -45,6 +46,7 @@ public class CaveDweller implements ModInitializer {
             this.resetNoiseTimer();
             this.resetCalmTimer();
             this.resetSurfaceTimer();
+            MimicManager.reset();
             doReload = false;
             LOG.info("Values have been reloaded");
         }
@@ -59,6 +61,11 @@ public class CaveDweller implements ModInitializer {
                 this.resetCalmTimer();
             }
         });
+
+        MimicManager.tick(server, overworld, dwellerExists.get());
+        if (MimicManager.isActive()) {
+            dwellerExists.set(true);
+        }
 
         if (ServerConfig.SURFACE_STALKING && !dwellerExists.get() && this.surfaceTick(overworld)) {
             dwellerExists.set(true);
@@ -95,7 +102,7 @@ public class CaveDweller implements ModInitializer {
     }
 
     public boolean playCaveSoundToSpelunkers(ServerPlayer player) {
-        if (!this.isPlayerSpelunker(player)) return false;
+        if (ServerConfig.SOUNDS_ONLY_WHILE_CHASING || !this.isPlayerSpelunker(player)) return false;
         SoundEvent soundEvent = switch (this.random.nextInt(4)) {
             case 1 -> ModSounds.CAVENOISE_2;
             case 2 -> ModSounds.CAVENOISE_3;
@@ -178,6 +185,9 @@ public class CaveDweller implements ModInitializer {
         lines.add("Spawn timer: " + Math.max(0, this.calmTimer / 20) + "s left"
                 + " (once 0: " + String.format("%.1f", ServerConfig.SPAWN_CHANCE_PER_TICK * 100) + "% chance per tick)");
         lines.addAll(this.surfaceReport(player));
+        if (player.level().getServer() != null) {
+            lines.addAll(MimicManager.report(player, player.level().getServer()));
+        }
         return lines;
     }
 

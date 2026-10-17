@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "id": "cave_dweller",
+  "id": "betterimprovements",
   "version": "${version}",
   "name": "BetterImprovements",
-  "description": "Better gameplay improvements",
-  "authors": [],
+  "description": "Better gameplay improvements (private build)",
+  "authors": ["Schpalrbo", "SiverDX", "Scorchy"],
   "license": "MIT",
   "icon": "icon.png",
   "environment": "*",

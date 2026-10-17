@@ -94,8 +94,10 @@ public class CaveDwellerStareGoal extends Goal {
       RandomSource random = this.caveDweller.getRandom();
       switch (random.nextInt(3)) {
          case 0 -> {
-            SoundEvent[] noises = {ModSounds.CAVENOISE_1, ModSounds.CAVENOISE_2, ModSounds.CAVENOISE_3, ModSounds.CAVENOISE_4};
-            player.playSound(noises[random.nextInt(noises.length)], 1.0F, 0.7F + random.nextFloat() * 0.3F);
+            if (!ServerConfig.SOUNDS_ONLY_WHILE_CHASING) {
+               SoundEvent[] noises = {ModSounds.CAVENOISE_1, ModSounds.CAVENOISE_2, ModSounds.CAVENOISE_3, ModSounds.CAVENOISE_4};
+               player.playSound(noises[random.nextInt(noises.length)], 1.0F, 0.7F + random.nextFloat() * 0.3F);
+            }
          }
          case 1 -> {
             if (ServerConfig.SNUFF_LIGHTS) this.snuffLight(player);

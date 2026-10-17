@@ -60,7 +60,7 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
     public static final EntityDataAccessor<Boolean> CLIMBING_ACCESSOR = SynchedEntityData.defineId(CaveDwellerEntity.class, EntityDataSerializers.BOOLEAN);
 
     /** Scoreboard tags are saved with the entity, so the mode survives chunk unloading and restarts. */
-    public static final String STALKER_TAG = "cave_dweller_surface_stalker";
+    public static final String STALKER_TAG = "bi_surface_stalker";
 
     private final float twoBlockSpaceCooldown;
     private boolean stalkerChecked;
@@ -158,6 +158,7 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
     @Nullable
     public Vec3 generatePos(Entity player) {
         Vec3 playerPos = player.position();
+        Vec3 original = this.position();
         Random rand = new Random();
         Level level = this.level();
         for (int attempt = 0; attempt < 60; attempt++) {
@@ -178,6 +179,42 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
                 }
             }
         }
+        this.setPos(original);
+        return null;
+    }
+
+    /** Spot 7-14 blocks away, behind or beside the player (outside the view cone), for a sudden appearance. */
+    @Nullable
+    public Vec3 generatePeekPos(LivingEntity target) {
+        Vec3 view = target.getViewVector(1.0F);
+        Vec3 view2d = new Vec3(view.x, 0.0, view.z);
+        if (view2d.lengthSqr() < 1.0E-4) return null;
+        view2d = view2d.normalize();
+        Vec3 original = this.position();
+        Random rand = new Random();
+        Level level = this.level();
+        int min = Math.min(ServerConfig.PEEK_MIN_DISTANCE, ServerConfig.PEEK_MAX_DISTANCE);
+        int max = Math.max(ServerConfig.PEEK_MIN_DISTANCE, ServerConfig.PEEK_MAX_DISTANCE);
+        for (int attempt = 0; attempt < 40; attempt++) {
+            double angle = rand.nextDouble() * Math.PI * 2.0;
+            double dirX = Math.cos(angle);
+            double dirZ = Math.sin(angle);
+            if (dirX * view2d.x + dirZ * view2d.z > 0.1) continue; // not in front of the player
+            double dist = min + rand.nextDouble() * (max - min);
+            int x = (int) Math.floor(target.getX() + dirX * dist);
+            int z = (int) Math.floor(target.getZ() + dirZ * dist);
+            for (int y = (int) Math.floor(target.getY()) + 3; y >= (int) Math.floor(target.getY()) - 4; y--) {
+                if (!Utils.blocksMotion(level, new BlockPos(x, y, z))
+                        && !Utils.blocksMotion(level, new BlockPos(x, y + 1, z))
+                        && !Utils.blocksMotion(level, new BlockPos(x, y + 2, z))
+                        && Utils.blocksMotion(level, new BlockPos(x, y - 1, z))) {
+                    this.setPos(x + 0.5, y, z + 0.5);
+                    if (!level.noCollision(this) || level.containsAnyLiquid(this.getBoundingBox())) break;
+                    return new Vec3(x + 0.5, y, z + 0.5);
+                }
+            }
+        }
+        this.setPos(original);
         return null;
     }
 
@@ -201,6 +238,10 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
 
     @Override
     public void tick() {
+        if (!this.level().isClientSide() && this.immediateCharge) {
+            this.currentRoll = Roll.CHASE;
+        }
+
         if (!this.level().isClientSide() && this.isSurfaceStalker()) {
             this.currentRoll = Roll.CHASE;
             if (!this.level().isDarkOutside()) {
@@ -285,6 +326,16 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
         this.ticksTillRemove = Utils.secondsToTicks(ServerConfig.SURFACE_STALK_TIME);
     }
 
+    /** Set when a player mimic transforms: skips hiding and stalking and hunts the target right away. */
+    public boolean immediateCharge;
+
+    public void startImmediateCharge(LivingEntity target) {
+        this.immediateCharge = true;
+        this.setInvisible(false);
+        this.currentRoll = Roll.CHASE;
+        this.setTarget(target);
+    }
+
     public void pickRoll(@NotNull List<Roll> rolls) { this.currentRoll = rolls.get(new Random().nextInt(rolls.size())); }
 
     @Nullable
@@ -352,17 +403,25 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
 
     @Override
     protected void playStepSound(@NotNull BlockPos pos, @NotNull BlockState state) {
+        if (!this.canMakeSound()) return;
         super.playStepSound(pos, state);
         this.playEntitySound(this.chooseStep());
     }
 
     private void playEntitySound(SoundEvent soundEvent) { this.playEntitySound(soundEvent, 1.0F, 1.0F); }
 
+    /** True while he is chasing; with SOUNDS_ONLY_WHILE_CHASING every other sound he makes is suppressed. */
+    public boolean canMakeSound() {
+        return !ServerConfig.SOUNDS_ONLY_WHILE_CHASING || this.getEntityData().get(AGGRO_ACCESSOR);
+    }
+
     private void playEntitySound(SoundEvent soundEvent, float volume, float pitch) {
+        if (!this.canMakeSound()) return;
         this.level().playSound(null, this, soundEvent, SoundSource.HOSTILE, volume, pitch);
     }
 
     private void playBlockPosSound(SoundEvent soundEvent, float volume, float pitch) {
+        if (!this.canMakeSound()) return;
         if (this.level() instanceof ServerLevel serverLevel) {
             int radiusSq = 3600;
             serverLevel.getPlayers(player -> player.distanceToSqr(this) <= radiusSq)
@@ -456,10 +515,12 @@ public class CaveDwellerEntity extends Monster implements GeoEntity {
     public boolean inLineOfSight(@Nullable LivingEntity target) { return target != null && target.hasLineOfSight(this); }
 
     @Override
-    protected SoundEvent getHurtSound(@NotNull DamageSource damageSource) { return this.chooseHurtSound(); }
+    @Nullable
+    protected SoundEvent getHurtSound(@NotNull DamageSource damageSource) { return this.canMakeSound() ? this.chooseHurtSound() : null; }
 
     @Override
-    protected SoundEvent getDeathSound() { return ModSounds.DWELLER_DEATH; }
+    @Nullable
+    protected SoundEvent getDeathSound() { return this.canMakeSound() ? ModSounds.DWELLER_DEATH : null; }
 
     @Override
     protected float getSoundVolume() { return 0.4F; }
